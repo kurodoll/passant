@@ -1,12 +1,15 @@
 #include <cstdlib>
 #include <fstream>
+#include <iostream>
+#include <sstream>
 #include <string>
 #include <vector>
 
-constexpr int STEPS = 1000000;
+constexpr auto DEBUG = true;
+constexpr int STEPS = 10000000;
 
 typedef std::vector< std::vector<int> > PLANE;
-constexpr int PLANE_SIZE = 64;
+constexpr int PLANE_SIZE = 32;
 
 struct RGB {
 	short r;
@@ -67,12 +70,25 @@ void writeToPPM(PLANE *plane, std::vector<RGB> colours) {
 	ppm << PLANE_SIZE << " " << PLANE_SIZE << std::endl;
 	ppm << "255" << std::endl;
 
+	int mr, mg, mb; // m = max
+	mr = mg = mb = 0;
+
 	for (auto x = 0; x < PLANE_SIZE; x++) {
 		for (auto y = 0; y < PLANE_SIZE; y++) {
 			ppm << colours[plane->at(x).at(y)].r << " "
 				<< colours[plane->at(x).at(y)].g << " "
 				<< colours[plane->at(x).at(y)].b << " ";
+
+			if (DEBUG) {
+				if (colours[plane->at(x).at(y)].r > mr) mr = colours[plane->at(x).at(y)].r;
+				if (colours[plane->at(x).at(y)].g > mg) mg = colours[plane->at(x).at(y)].g;
+				if (colours[plane->at(x).at(y)].b > mb) mb = colours[plane->at(x).at(y)].b;
+			}
 		}
+	}
+
+	if (DEBUG) {
+		std::cout << "[DEBUG] Largest colour values written: " << mr << ", " << mg << ", " << mb << std::endl;
 	}
 
 	ppm.close();
@@ -121,13 +137,17 @@ void generateNcodeImg(std::string str) {
 	std::vector<RGB> l_colours;
 
 	if (str.length() > colours.size()) {
-		for (auto r = 0; r < 256; r++) {
-			for (auto g = 0; g < 256; g++) {
-				for (auto b = 0; b < 256; b++) {
+		for (auto r = 0; r < 256; r += 10) {
+			for (auto g = 0; g < 256; g += 10) {
+				for (auto b = 0; b < 256; b += 10) {
 					RGB col = { (short)r, (short)g, (short)b };
 					l_colours.push_back(col);
 
 					if (str.length() == l_colours.size()) {
+						if (DEBUG) {
+							std::cout << "[DEBUG] Generated up to: " << r << ", " << g << ", " << b << std::endl;
+						}
+
 						goto escape;
 					}
 				}
@@ -143,7 +163,42 @@ escape:
 }
 
 
-int main() {
-	generateNcodeImg("testpassword");
+int main(int argc, char **args) {
+	if (argc == 3) {
+		if (strcmp(args[1], "gen") == 0) { // Generate (ncode img)
+			generateNcodeImg(args[2]); // Saves to output.ppm
+			std::cout << "Generated output.ppm";
+		}
+		else {
+			std::cout << "Usage: " << args[0] << " gen password";
+		}
+	}
+	else if (argc == 4) {
+		if (strcmp(args[1], "check") == 0) {
+			generateNcodeImg(args[3]);
+
+			std::ifstream given("output.ppm");
+			std::stringstream given_str;
+			given_str << given.rdbuf();
+
+			std::ifstream existing(args[2]);
+			std::stringstream existing_str;
+			existing_str << existing.rdbuf();
+
+			if (given_str.str() == existing_str.str()) {
+				std::cout << "Password is correct.";
+			}
+			else {
+				std::cout << "Password doesn't match given ncode img.";
+			}
+		}
+		else {
+			std::cout << "Usage: " << args[0] << " check ncode_img password";
+		}
+	}
+	else {
+		std::cout << "Invalid command given.";
+	}
+
 	return 0;
 }
