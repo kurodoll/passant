@@ -1,3 +1,4 @@
+#include <cstdlib>
 #include <fstream>
 #include <string>
 #include <vector>
@@ -59,7 +60,7 @@ public:
 };
 
 
-void writeToPPM(PLANE *plane) {
+void writeToPPM(PLANE *plane, std::vector<RGB> colours) {
 	std::ofstream ppm("output.ppm");
 
 	ppm << "P3" << std::endl;
@@ -78,7 +79,30 @@ void writeToPPM(PLANE *plane) {
 }
 
 
-int main() {
+std::string strToRule(std::string str) {
+	std::string strAsBin = "";
+	std::string rule = "";
+
+	for (char c : str) {
+		char binary[33];
+		_itoa_s(c, binary, 2);
+		strAsBin += binary;
+	}
+
+	for (char c : strAsBin) {
+		if (c == '0') {
+			rule += "L";
+		}
+		else {
+			rule += "R";
+		}
+	}
+
+	return rule;
+}
+
+
+void generateNcodeImg(std::string str) {
 	// Create plane (grid) for ant
 	PLANE plane;
 	plane.resize(PLANE_SIZE);
@@ -86,13 +110,40 @@ int main() {
 		plane[i].resize(PLANE_SIZE);
 	}
 
-	Ant ant("LR");
+	str = strToRule(str);
+	Ant ant(str);
 
 	for (auto i = 0; i < STEPS; i++) {
 		ant.step(&plane);
 	}
 
-	writeToPPM(&plane);
+	// Ensure that there are enough colours defined
+	std::vector<RGB> l_colours;
 
+	if (str.length() > colours.size()) {
+		for (auto r = 0; r < 256; r++) {
+			for (auto g = 0; g < 256; g++) {
+				for (auto b = 0; b < 256; b++) {
+					RGB col = { (short)r, (short)g, (short)b };
+					l_colours.push_back(col);
+
+					if (str.length() == l_colours.size()) {
+						goto escape;
+					}
+				}
+			}
+		}
+	}
+	else {
+		l_colours = colours;
+	}
+
+escape:
+	writeToPPM(&plane, l_colours);
+}
+
+
+int main() {
+	generateNcodeImg("testpassword");
 	return 0;
 }
